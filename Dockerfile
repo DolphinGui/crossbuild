@@ -1,16 +1,12 @@
-FROM buildpack-deps:stretch-curl
-MAINTAINER Manfred Touron <m@42.am> (https://github.com/moul)
+FROM buildpack-deps:curl
+LABEL maintainer="Shin Umeda <umeda.shin@gmail.com>"
+LABEL Description="Image for building AVR GCC toolchain"
 
 # Install deps
-RUN set -x; echo "Starting image build for Debian Stretch" \
+RUN set -x; echo "Starting image build for Debian" \
  && dpkg --add-architecture arm64                      \
  && dpkg --add-architecture armel                      \
  && dpkg --add-architecture armhf                      \
- && dpkg --add-architecture i386                       \
- && dpkg --add-architecture mips                       \
- && dpkg --add-architecture mipsel                     \
- && dpkg --add-architecture powerpc                    \
- && dpkg --add-architecture ppc64el                    \
  && apt-get update                                     \
  && apt-get install -y -q                              \
         autoconf                                       \
@@ -26,8 +22,6 @@ RUN set -x; echo "Starting image build for Debian Stretch" \
         crossbuild-essential-arm64                     \
         crossbuild-essential-armel                     \
         crossbuild-essential-armhf                     \
-        crossbuild-essential-mipsel                    \
-        crossbuild-essential-ppc64el                   \
         curl                                           \
         devscripts                                     \
         gdb                                            \
@@ -47,9 +41,9 @@ RUN set -x; echo "Starting image build for Debian Stretch" \
         lzma-dev                                       \
         openssl                                        \
         libssl-dev                                     \
+        atool \
+        parallel \
  && apt-get clean
-# FIXME: install gcc-multilib
-# FIXME: add mips and powerpc architectures
 
 
 # Install Windows cross-tools
@@ -59,30 +53,32 @@ RUN apt-get install -y mingw-w64 \
 
 # Install OSx cross-tools
 
+COPY tarballs/ tarballs/
+
+RUN ls tarballs/
+
 #Build arguments
 ARG osxcross_repo="tpoechtrager/osxcross"
-ARG osxcross_revision="542acc2ef6c21aeb3f109c03748b1015a71fed63"
-ARG darwin_sdk_version="10.10"
+ARG osxcross_revision="29fe6dd35522073c9df5800f8cd1feb4b9a993a8"
+ARG darwin_sdk_version="14.5"
 ARG darwin_osx_version_min="10.6"
-ARG darwin_version="14"
-ARG darwin_sdk_url="https://www.dropbox.com/s/yfbesd249w10lpc/MacOSX${darwin_sdk_version}.sdk.tar.xz"
+ARG darwin_version="23.5"
+
 
 # ENV available in docker image
 ENV OSXCROSS_REPO="${osxcross_repo}"                   \
     OSXCROSS_REVISION="${osxcross_revision}"           \
     DARWIN_SDK_VERSION="${darwin_sdk_version}"         \
     DARWIN_VERSION="${darwin_version}"                 \
-    DARWIN_OSX_VERSION_MIN="${darwin_osx_version_min}" \
-    DARWIN_SDK_URL="${darwin_sdk_url}"
+    DARWIN_OSX_VERSION_MIN="${darwin_osx_version_min}"
 
 RUN mkdir -p "/tmp/osxcross"                                                                                   \
+ && mv "tarballs" "/tmp/osxcross"  \
  && cd "/tmp/osxcross"                                                                                         \
  && curl -sLo osxcross.tar.gz "https://codeload.github.com/${OSXCROSS_REPO}/tar.gz/${OSXCROSS_REVISION}"  \
  && tar --strip=1 -xzf osxcross.tar.gz                                                                         \
  && rm -f osxcross.tar.gz                                                                                      \
- && curl -sLo tarballs/MacOSX${DARWIN_SDK_VERSION}.sdk.tar.xz                                                  \
-             "${DARWIN_SDK_URL}"                \
- && yes "" | SDK_VERSION="${DARWIN_SDK_VERSION}" OSX_VERSION_MIN="${DARWIN_OSX_VERSION_MIN}" ./build.sh                               \
+ && yes "" | SDK_VERSION="${DARWIN_SDK_VERSION}" OSX_VERSION_MIN="${DARWIN_OSX_VERSION_MIN}" ./build.sh        \
  && mv target /usr/osxcross                                                                                    \
  && mv tools /usr/osxcross/                                                                                    \
  && ln -sf ../tools/osxcross-macports /usr/osxcross/bin/omp                                                    \
@@ -94,9 +90,9 @@ RUN mkdir -p "/tmp/osxcross"                                                    
 
 
 # Create symlinks for triples and set default CROSS_TRIPLE
-ENV LINUX_TRIPLES=arm-linux-gnueabi,arm-linux-gnueabihf,aarch64-linux-gnu,mipsel-linux-gnu,powerpc64le-linux-gnu                  \
-    DARWIN_TRIPLES=x86_64h-apple-darwin${DARWIN_VERSION},x86_64-apple-darwin${DARWIN_VERSION},i386-apple-darwin${DARWIN_VERSION}  \
-    WINDOWS_TRIPLES=i686-w64-mingw32,x86_64-w64-mingw32                                                                           \
+ENV LINUX_TRIPLES=arm-linux-gnueabi,arm-linux-gnueabihf,aarch64-linux-gnu                  \
+    DARWIN_TRIPLES=x86_64h-apple-darwin${DARWIN_VERSION},x86_64-apple-darwin${DARWIN_VERSION},aarch64-apple-darwin${DARWIN_VERSION}  \
+    WINDOWS_TRIPLES=x86_64-w64-mingw32                                                                           \
     CROSS_TRIPLE=x86_64-linux-gnu
 COPY ./assets/osxcross-wrapper /usr/bin/osxcross-wrapper
 RUN mkdir -p /usr/x86_64-linux-gnu;                                                               \
