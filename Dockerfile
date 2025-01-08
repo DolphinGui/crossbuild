@@ -1,6 +1,6 @@
 FROM buildpack-deps:curl
 LABEL maintainer="Shin Umeda <umeda.shin@gmail.com>"
-LABEL Description="Image for building AVR GCC toolchain"
+LABEL Description="Vendored fork of Manfred Touron's dockerfile for building my own projects"
 
 # Install deps
 RUN set -x; echo "Starting image build for Debian" \
